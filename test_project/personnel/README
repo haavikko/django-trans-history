@@ -1,0 +1,86 @@
+
+History data model
+
+
+Revision
+-> can we make this transient (created on demand - does not exist in database?) store enough metadata
+   to each history row to make it redundant?
+
+Identity
+(- database_row_uuid -> identifies the row uniquely)
+- content_type_id -> identifies the table where the
+- object_id ->
+- <class-name>_versions -> reverse end of FK fields that are defined in <class-name>History tables 
+
+Use cases:
+
+UC: Set up database
+
+UC: begin transaction
+- SQL BEGIN is executed
+-- nothing in the database changes yet, and no custom pl/pgsql code is executed.
+-- internally, postgresql creates new transaction id and assigns it to the transaction.
+   it is a 64-bit identifier that "will not wrap around for the life of an installation".
+   When the transaction is running, it can be retrieved with "select txid_current();"
+
+UC: Create a new object
+- Example: Organization.objects.create(name='Internet Widgets Pty Ltd')
+- SQL INSERT is executed. Row is added to myapp_organization table. 
+- Later when the transaction is committed, the trigger is executed:
+-- check current transaction id. If a revision with this transaction id does not exist yet,
+   then a new Revision is created (see UC: create new revision)  
+
+UC: Modify an object
+- Example: Organization.objects.filter(name='Internet Widgets Pty Ltd').update(name='Acme Corporation')
+- SQL UPDATE is executed. Row is modified in myapp_organization table. 
+- Later when the transaction is committed, the trigger is executed:
+-- check current transaction id. If a revision with this transaction id does not exist yet,
+   then a new Revision is created (see UC: create new revision)  
+-- New row is added to OrganizationHistory table
+
+UC: create new revision
+- store the current transaction id into the Revision.
+- autoincrement Revision pk
+- ISSUE: ordering of Revisions.
+  - Revision id is created when row is added
+  - transaction id is assigned when the transaction is started.
+  - committed_at timestamp is set at the end of transaction when first trigger runs
+  Therefore it is possible to get many different orderings of Revisions.
+  Q: which one to use? Probably should use committed_at, or should add a "commit_id" field
+     that is filled from a sequence, so it approximates an actual commit ordering.
+
+UC: Set value of foreign key field
+
+UC: Add entry into employee-organization many-to-many relation
+
+UC: Simultaneous overlapping (potentially long-running) transactions
+
+UC: Set the "committed_by" attribute of Revision
+- triggered from Python: e.g. Revision.objects.set_current_transaction_committer(request.user)
+- If Revision object does not exist yet, it is created (see UC: create new revision)
+- committer field is updated. If committer field was already set, then the field can not be changed to a different value.
+
+UC: Find an old version of an object
+
+UC: A row is added and then deleted in the same transaction
+
+UC: Database is dumped and restored on another postgresql instance
+Q: after restoring, can the transaction ids be duplicate? If so, must
+   also compare timestamp of Revision.
+
+UC: Database schema changes - column added 
+- requirements:
+-- after schema change, changes to new column must be added
+-- in history table, new column must be added. In old rows must be set to NULL, even if
+   the column is not nullable in actual table.
+
+UC: Database schema changes - column removed 
+- requirements:
+-- must preserve the old data in history table
+-- must not 
+
+
+
+
+
+  

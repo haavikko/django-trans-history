@@ -46,3 +46,52 @@ support model inheritance (abstract/non-abstract)?
 Unsupported features
 * Database independence. Support for each database back-end must be implemented separately. Project is aimed at Postgres.
 
+## Troubleshooting
+
+It is normal to receive messages like 'trigger "trans_history_trigger_auth_user" for table "auth_user" does not exist, skipping'
+
+Troubleshooting
+---------------
+
+* Error "django.db.utils.DatabaseError: must be owner of database" while running transhistory_syncdb
+
+Insufficient privileges on database. A quick fix is "GRANT ALL TO DATABASE <dbname> TO <username>", but
+adapt to requirements.
+
+* Error "INSERT has more expressions than target columns" in postgresql log
+
+Check that the columns in main table and log table (and corresponding Django models) match.
+
+* ERROR:  too many parameters specified for RAISE
+
+This error is related to psycopg2 quoting. psycopg2 uses % to identify argument placeholders in sql.
+The procedures that are installed also use %% 
+This problem has been detected with psycopg2 2.0.13 and may apply to later versions too
+Resolution: Add TRANSHISTORY_DOUBLE_PERCENT=True to your settings.py file.
+
+* The <MyModelName>History tables are empty after installation
+
+This is by design. If you would like populate the history table with current values,
+do something like:
+>>> MyModel.objects.all().update(id=F('id'))
+Which forces the history triggers to run for all table rows.
+This may take a long time if table is large!
+
+* Error while inserting data to history table - wrong data type
+
+Ensure that the columns in database table and django model definition are in the same order (needs fixing).
+
+* IndexError: tuple index out of range while running transhistory_syncdb
+
+* Error in postgresql or django log files, while inserting data to history table
+For example: CONTEXT:  SQL statement "INSERT INTO dm_mytablehistory VALUES(DEFAULT,  $1 ,  $2 ,  $3 ,  $4 ,  $5 ,  $6 ,  $7 ,  $8 ,  $9 ,  $10 )"
+
+Has the DB structure changed? re-run transhistory_syncdb.
+
+* transhistory_syncdb management command seems to take forever
+
+Some other (maybe idle) connection is probably holding a lock on one of the tables.
+In order to create procedures, the code needs to acquire locks on all tables. Close all database clients (such as Django shell).
+Check pg_locks.
+
+

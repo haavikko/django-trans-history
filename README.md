@@ -7,7 +7,6 @@ This project is work in progress. Not recommended for general use.
 *  Maintain full history of database state
 *  Query the database as it was at any given time:
    old_rev = Revision.objects.get_by_timestamp(datetime(nnnnn))
-   # return all users that existed in the database at the specified time and belonged to organization named 'foo' at that time.
    User.history(revision=old_rev).filter(organizations_name='foo')
    changed_users = old_rev.get_changed_objects(clss=User).filter(name='bar'): # return all objects that were changed at this revision
    changes = old_rev.get_all_changed_objects(): # return all objects that were changed at this revision
@@ -27,7 +26,6 @@ This project is work in progress. Not recommended for general use.
    User.history(revision=old_rev).filter(name__ilike='bar').restore() # restore all fields. If object was deleted, undelete it.
    User.history(revision=old_rev).filter(name__ilike='bar').restore(fields=['name', 'organizations']) # just some users and some fields
    Revision.objects.get_by_timestamp(datetime(nnnnn)).restore_all() # restore all data in the database to a previous state
-   # normally reverting to an old revision works by making a new one 
    Revision.objects.get_by_timestamp(datetime(nnnnn)).rollback_all_later_revisions() # works by deleting objects, INCLUDING history
 *  Track history of 3rd-party models without changing their code (such as django.contrib.auth.User)  
 *  Take history tracking into use in an existing system. (TODO: maybe a management command to create initial "create" revisions?
